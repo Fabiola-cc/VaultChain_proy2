@@ -47,4 +47,29 @@ def decrypt_message(payload: dict, recipient_private_key_pem: str) -> str:
     )
  
     return plaintext.decode("utf-8")
- 
+
+
+def encrypt_message_group(plaintext: str, recipients: dict[str, str]) -> dict:
+    """
+    recipients: {user_id: public_key_pem}
+    Cifra el plaintext UNA sola vez con AES-256-GCM y cifra
+    la misma clave AES con la llave pública RSA-OAEP de cada destinatario.
+    """
+    aes_key = os.urandom(32)
+    aes_cipher = AES.new(aes_key, AES.MODE_GCM)
+    ciphertext, tag = aes_cipher.encrypt_and_digest(plaintext.encode())
+    nonce = aes_cipher.nonce
+
+    encrypted_keys = {}
+    for user_id, public_key_pem in recipients.items():
+        rsa_key = RSA.import_key(public_key_pem)
+        rsa_cipher = PKCS1_OAEP.new(rsa_key)
+        encrypted_keys[user_id] = b64(rsa_cipher.encrypt(aes_key))
+
+    return {
+        "ciphertext":     b64(ciphertext),
+        "nonce":          b64(nonce),
+        "auth_tag":       b64(tag),
+        "timestamp":      datetime.now(timezone.utc).isoformat(),
+        "encrypted_keys": encrypted_keys,
+    }
