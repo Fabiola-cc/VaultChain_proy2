@@ -50,7 +50,20 @@ class GroupMessageSummary(BaseModel):
     auth_tag:   str
     timestamp:  str
 
-
 class ListGroupMessagesResponse(BaseModel):
     group_id: str
     messages: List[GroupMessageSummary]
+
+class DecryptGroupMessagesRequest(BaseModel):
+    email:    str
+    password: str
+
+class GroupDecryptedMessageSummary(BaseModel):
+    message_id: str
+    sender_id:  str
+    message:    str
+    timestamp:  str
+
+class ListDecryptedGroupMessagesResponse(BaseModel):
+    group_id: str
+    messages: List[GroupDecryptedMessageSummary]

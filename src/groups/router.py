@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from src.database import get_db
 from src.auth.models import User
+from src.auth.keys import decrypt_private_key
 from src.messages.models import Message, MessageRecipient
 from src.groups.models import Group, GroupMember, GroupMessage
 from src.groups.schemas import (
@@ -10,8 +11,10 @@ from src.groups.schemas import (
     GetGroupResponse, MemberInfo,
     SendGroupMessageRequest, SendGroupMessageResponse,
     GroupMessageSummary, ListGroupMessagesResponse,
+    GroupDecryptedMessageSummary, ListDecryptedGroupMessagesResponse,
+    DecryptGroupMessagesRequest
 )
-from src.crypto.message import encrypt_message_group
+from src.crypto.message import encrypt_message_group, decrypt_message
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 
@@ -177,3 +180,78 @@ def list_group_messages(group_id: str, db: Session = Depends(get_db)):
             ))
 
     return ListGroupMessagesResponse(group_id=group_id, messages=summaries)
+
+@router.post("/{group_id}/messages/decrypted", response_model=ListDecryptedGroupMessagesResponse)
+def list_decrypted_group_messages(
+    group_id: str, 
+    body: DecryptGroupMessagesRequest,
+    db: Session = Depends(get_db)
+):
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    join_rows = db.query(GroupMessage).filter(GroupMessage.group_id == group.id).all()
+    message_ids = [row.message_id for row in join_rows]
+
+    # Verificar acceso
+    user = db.query(User).filter(
+        User.email == body.email
+    ).first()
+
+    row = db.query(GroupMember).filter(
+        GroupMember.group_id == group.id,
+        GroupMember.user_id == user.id
+    ).first()
+    
+    if not row:
+        raise HTTPException(status_code=403, detail="User is not part of the group")
+    
+    # Descifrar private key del usuario
+    try:
+        user_private_key = decrypt_private_key(
+            user.encrypted_private_key,
+            body.password
+        )
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid password")
+
+    summaries = []
+    if message_ids:
+        messages = (
+            db.query(Message)
+            .filter(Message.id.in_(message_ids))
+            .order_by(Message.created_at.asc())
+            .all()
+        )
+        for msg in messages:
+            msg_info = db.query(MessageRecipient).filter(
+                MessageRecipient.message_id == msg.id,
+                MessageRecipient.recipient_id == user.id
+            ).first()
+
+            if not msg_info:
+                raise HTTPException(status_code=403, detail="User is not part of the group")
+            
+            # Preparar payload
+            payload = {
+                "ciphertext": msg.ciphertext,
+                "nonce": msg.nonce,
+                "auth_tag": msg.auth_tag,
+                "encrypted_key": msg_info.encrypted_key
+            }
+
+            # Descifrar mensaje
+            try:
+                message_decrypted = decrypt_message(payload, user_private_key)
+            except Exception:
+                raise HTTPException(status_code=500, detail="Error decrypting message")
+
+            summaries.append(GroupDecryptedMessageSummary(
+                message_id = str(msg.id),
+                sender_id  = str(msg.sender_id),
+                message = message_decrypted,
+                timestamp  = msg.timestamp,
+            ))
+
+    return ListDecryptedGroupMessagesResponse(group_id=group_id, messages=summaries)
