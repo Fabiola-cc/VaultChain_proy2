@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 from src.database import get_db
 from src.auth.models import User
 from src.auth.keys import decrypt_private_key
-from src.messages.models import Message, MessageRecipient
-from src.groups.models import Group, GroupMember, GroupMessage
-from src.groups.schemas import (
+from src.crypto.models import Message, MessageRecipient
+from src.crypto.models import Group, GroupMember, GroupMessage
+from src.crypto.schemas import (
     CreateGroupRequest, CreateGroupResponse,
     GetGroupResponse, MemberInfo,
     SendGroupMessageRequest, SendGroupMessageResponse,

@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from src.database import get_db
 from src.auth.models import User
-from src.messages.models import Message, MessageRecipient
-from src.messages.schemas import SendMessageRequest, SendMessageResponse, GetMessageResponse, GetDecryptedMessageResponse, DecryptRequest
+from src.crypto.models import Message, MessageRecipient
+from src.crypto.schemas import SendMessageRequest, SendMessageResponse, GetMessageResponse, GetDecryptedMessageResponse, DecryptRequest
 from src.crypto.message import encrypt_message_group, decrypt_message
 from src.auth.keys import decrypt_private_key
 

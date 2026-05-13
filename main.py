@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from src.database import engine, Base
-from src.auth.router import router as auth_router
+from src.api.auth import router as auth_router
 from src.api.users import router as users_router
-from src.messages.router import router as messages_router
-from src.groups.router import router as groups_router
+from src.api.messages import router as messages_router
+from src.api.groups import router as groups_router
 
 Base.metadata.create_all(bind=engine)
 
