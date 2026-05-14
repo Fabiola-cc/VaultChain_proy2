@@ -20,7 +20,7 @@ def sign_message(plaintext: str, sender_private_key_pem: str) -> str:
     signature = pss.new(private_key).sign(message_hash)
 
     # Retornar en Base64 para guardarlo en DB
-    return base64.b64encode(signature, validate=True).decode()
+    return base64.b64encode(signature).decode()
 
 
 def verify_signature(plaintext: str, signature_b64: str, public_key_pem: str) -> dict:
